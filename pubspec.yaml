@@ -1,0 +1,31 @@
+name: aadnanda_app
+description: A Flutter app that displays aadnanda.com
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_flutter: ^4.4.0
+  webview_flutter_android: ^3.9.0
+  webview_flutter_wkwebview: ^3.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+
+flutter_launcher_icons:
+  android: true
+  android_image_path: "assets/icon/app_icon.png"
+  ios: true
+  ios_image_path: "assets/icon/app_icon_ios.png"
+  remove_alpha_ios: true
+  image_path: "assets/icon/app_icon.png"
