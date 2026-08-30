@@ -1,0 +1,32 @@
+{
+  "name": "Aad Nanda",
+  "identifier": "com.aadnanda.altstore",
+  "sourceURL": "https://raw.githubusercontent.com/Aad6552/aadnanda-app/main/altstore.json",
+  "apps": [
+    {
+      "name": "Aad Nanda",
+      "bundleIdentifier": "com.example.aadnandaApp",
+      "developerName": "Aad Nanda",
+      "localizedDescription": "aadnanda.com as an iOS app.",
+      "iconURL": "https://raw.githubusercontent.com/Aad6552/aadnanda-app/main/assets/icon/app_icon.png",
+      "tintColor": "1976D2",
+      "category": "utilities",
+      "version": "1.0.3",
+      "versionDate": "2026-08-29",
+      "downloadURL": "https://github.com/Aad6552/aadnanda-app/releases/download/ios-latest/aadnanda.ipa",
+      "size": 6329573,
+      "versions": [
+        {
+          "version": "1.0.3",
+          "buildVersion": "3",
+          "date": "2026-08-29",
+          "localizedDescription": "Build 1.0.3+3",
+          "downloadURL": "https://github.com/Aad6552/aadnanda-app/releases/download/ios-latest/aadnanda.ipa",
+          "size": 6329573,
+          "minOSVersion": "13.0"
+        }
+      ]
+    }
+  ],
+  "news": []
+}
