@@ -35,6 +35,16 @@ GITHUB_REPO="Aad6552/aadnanda-app"
 RELEASE_TAG="ios-latest"
 RELEASE_TITLE="Aad Nanda — iOS (latest)"
 
+# AltStore source manifest — committed to the repo, served raw from GitHub.
+# Add this URL as a Source in AltStore, install from it, and "Refresh All"
+# auto-updates to whatever IPA the ios-latest release currently holds.
+ALTSTORE_MANIFEST="$ROOT_DIR/altstore.json"
+ALTSTORE_BRANCH="main"
+ALTSTORE_SOURCE_ID="com.aadnanda.altstore"
+ALTSTORE_SOURCE_URL="https://raw.githubusercontent.com/$GITHUB_REPO/$ALTSTORE_BRANCH/altstore.json"
+ALTSTORE_ICON_URL="https://raw.githubusercontent.com/$GITHUB_REPO/$ALTSTORE_BRANCH/assets/icon/app_icon.png"
+ALTSTORE_MIN_IOS="13.0"
+
 GITHUB_RELEASE="true"
 GIT_COMMIT="true"
 GIT_PUSH="true"
@@ -186,6 +196,70 @@ build_ipa() {
   [[ -f "$IPA_FINAL_PATH" ]] || { echo "Error: failed to move IPA to $IPA_FINAL_PATH" >&2; exit 1; }
 }
 
+app_bundle_id() {
+  awk -F '[[:space:]]*=[[:space:]]*|;' \
+    '/PRODUCT_BUNDLE_IDENTIFIER/ {gsub(/[[:space:]]/,"",$2); print $2; exit}' \
+    "$ROOT_DIR/ios/Runner.xcodeproj/project.pbxproj"
+}
+
+# Regenerate altstore.json to point at the just-built IPA and commit it, so the
+# AltStore source (served raw from GitHub) advertises the new version. AltStore
+# "Refresh All" then downloads this IPA from the ios-latest release.
+write_altstore_manifest() {
+  require_git
+  cd "$ROOT_DIR"
+
+  local short="${VERSION%+*}" build="${VERSION#*+}" size date bundle dl
+  size="$(stat -f%z "$IPA_FINAL_PATH")"
+  date="$(date +%Y-%m-%d)"
+  bundle="$(app_bundle_id)"
+  bundle="${bundle:-com.example.aadnandaApp}"
+  dl="https://github.com/$GITHUB_REPO/releases/download/$RELEASE_TAG/$(basename "$IPA_FINAL_PATH")"
+
+  cat > "$ALTSTORE_MANIFEST" <<JSON
+{
+  "name": "$APP_NAME",
+  "identifier": "$ALTSTORE_SOURCE_ID",
+  "sourceURL": "$ALTSTORE_SOURCE_URL",
+  "apps": [
+    {
+      "name": "$APP_NAME",
+      "bundleIdentifier": "$bundle",
+      "developerName": "$APP_NAME",
+      "localizedDescription": "aadnanda.com as an iOS app.",
+      "iconURL": "$ALTSTORE_ICON_URL",
+      "tintColor": "1976D2",
+      "category": "utilities",
+      "version": "$short",
+      "versionDate": "$date",
+      "downloadURL": "$dl",
+      "size": $size,
+      "versions": [
+        {
+          "version": "$short",
+          "buildVersion": "$build",
+          "date": "$date",
+          "localizedDescription": "Build $VERSION",
+          "downloadURL": "$dl",
+          "size": $size,
+          "minOSVersion": "$ALTSTORE_MIN_IOS"
+        }
+      ]
+    }
+  ],
+  "news": []
+}
+JSON
+
+  git add "$ALTSTORE_MANIFEST"
+  if git diff --cached --quiet; then
+    echo "AltStore: manifest unchanged"
+  else
+    git commit -m "AltStore manifest $VERSION"
+    echo "AltStore: manifest updated for $VERSION"
+  fi
+}
+
 # Publish the IPA to ONE rolling release. Deletes the previous release and
 # re-points the "ios-latest" tag at the current commit, so the release page
 # only ever shows the newest build.
@@ -334,6 +408,10 @@ echo ""
 delete_old_ipa
 build_ipa
 
+if [[ "$GITHUB_RELEASE" == "true" && "$GIT_COMMIT" == "true" ]]; then
+  write_altstore_manifest
+fi
+
 if [[ "$GIT_PUSH" == "true" ]]; then
   git_push_branch
 fi
@@ -348,6 +426,9 @@ echo "  Done!"
 echo "════════════════════════════════════════"
 echo "Version:    $VERSION"
 echo "Built IPA:  $IPA_FINAL_PATH"
-[[ "$GITHUB_RELEASE" == "true" ]] && echo "Release:    https://github.com/$GITHUB_REPO/releases/tag/$RELEASE_TAG"
+if [[ "$GITHUB_RELEASE" == "true" ]]; then
+  echo "Release:    https://github.com/$GITHUB_REPO/releases/tag/$RELEASE_TAG"
+  echo "AltStore:   $ALTSTORE_SOURCE_URL"
+fi
 echo "════════════════════════════════════════"
 echo ""
