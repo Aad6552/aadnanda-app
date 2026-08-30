@@ -1,33 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Aad Nanda — iOS IPA builder
-# ---------------------------
-# Builds a release IPA of the aadnanda.com Flutter webview app and moves it to
-# ~/Documents/GitHub/ipa/aadnanda.ipa.
+# Aad Nanda — Android APK/AAB builder
+# ----------------------------------
+# Builds a release APK (or AAB) of the aadnanda.com Flutter webview app and
+# moves it to ~/Documents/GitHub/apk/aadnanda.apk (or .aab).
 #
 # Version bumping lives in bin/bump-version.sh. This script calls it when the
 # working tree has uncommitted changes (or when you pass --bump / --version /
 # --no-bump); a clean tree just rebuilds the current version.
 #
+# Pair with bin/aadnanda-ipa.sh: run one, then run the other on the (now clean)
+# tree so both artifacts share a version and tag.
+#
 # Common runs:
-#   ./bin/aadnanda-ipa.sh
-#   ./bin/aadnanda-ipa.sh --quick
-#   ./bin/aadnanda-ipa.sh --bump patch
-#   ./bin/aadnanda-ipa.sh --bump minor --github-release
-#   ./bin/aadnanda-ipa.sh --no-git-commit --no-push
-#   ./bin/aadnanda-ipa.sh --delete
+#   ./bin/aadnanda-apk.sh
+#   ./bin/aadnanda-apk.sh --aab
+#   ./bin/aadnanda-apk.sh --quick
+#   ./bin/aadnanda-apk.sh --bump patch
+#   ./bin/aadnanda-apk.sh --bump minor --github-release
+#   ./bin/aadnanda-apk.sh --no-git-commit --no-push
+#   ./bin/aadnanda-apk.sh --delete
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="$ROOT_DIR/bin"
 PUBSPEC_FILE="$ROOT_DIR/pubspec.yaml"
-IPA_OUTPUT_DIR="$HOME/Documents/GitHub/ipa"
+APK_OUTPUT_DIR="$HOME/Documents/GitHub/apk"
 APP_NAME="Aad Nanda"
-IPA_BUILD_DIR="$ROOT_DIR/build/ios/ipa"
-IPA_FINAL_PATH="$IPA_OUTPUT_DIR/aadnanda.ipa"
 GITHUB_REPO="Aad6552/aadnanda-app"
 TAG_PREFIX="aadnanda-v"
 
+BUILD_TYPE="apk"
 GITHUB_RELEASE="false"
 GIT_COMMIT="true"
 GIT_PUSH="true"
@@ -36,26 +39,28 @@ DELETE_ONLY="false"
 
 usage() {
   cat <<'USAGE'
-Aad Nanda — iOS IPA builder for the aadnanda.com webview app.
+Aad Nanda — Android APK/AAB builder for the aadnanda.com webview app.
 
 Usage:
-  ./bin/aadnanda-ipa.sh [options]
+  ./bin/aadnanda-apk.sh [options]
 
 Examples:
-  ./bin/aadnanda-ipa.sh
-  ./bin/aadnanda-ipa.sh --quick
-  ./bin/aadnanda-ipa.sh --bump patch
-  ./bin/aadnanda-ipa.sh --bump minor --github-release
-  ./bin/aadnanda-ipa.sh --no-git-commit --no-push
-  ./bin/aadnanda-ipa.sh --delete
+  ./bin/aadnanda-apk.sh
+  ./bin/aadnanda-apk.sh --aab
+  ./bin/aadnanda-apk.sh --quick
+  ./bin/aadnanda-apk.sh --bump patch
+  ./bin/aadnanda-apk.sh --bump minor --github-release
+  ./bin/aadnanda-apk.sh --no-git-commit --no-push
+  ./bin/aadnanda-apk.sh --delete
 
 Options:
+  --aab                 Build an Android App Bundle instead of an APK
   --version X.Y.Z+B     Force a version (passed to bump-version.sh)
   --bump patch|minor|major|build
   --no-bump             Build the current version, don't bump
-  --delete              Delete old IPA and exit (no build)
+  --delete              Delete old APK/AAB and exit (no build)
   --repo OWNER/REPO     Override GitHub repo (default: Aad6552/aadnanda-app)
-  --github-release      Create/update a GitHub release and upload the IPA
+  --github-release      Create/update a GitHub release and upload the artifact
   --no-github-release   (default)
   --git-commit          Let bump-version.sh commit the bump (default)
   --no-git-commit       Rewrite pubspec.yaml only, don't commit
@@ -116,14 +121,16 @@ git_sync_branch() {
   fi
 }
 
-delete_old_ipa() {
-  if [[ -f "$IPA_FINAL_PATH" ]]; then
-    echo "Deleting old IPA: $IPA_FINAL_PATH"
-    rm -f "$IPA_FINAL_PATH"
-  fi
+delete_old_artifact() {
+  for ext in apk aab; do
+    if [[ -f "$APK_OUTPUT_DIR/aadnanda.$ext" ]]; then
+      echo "Deleting old artifact: $APK_OUTPUT_DIR/aadnanda.$ext"
+      rm -f "$APK_OUTPUT_DIR/aadnanda.$ext"
+    fi
+  done
 }
 
-build_ipa() {
+build_artifact() {
   echo ""
   if [[ "$SKIP_CLEAN" == "true" ]]; then
     echo "Skipping flutter clean (--quick)..."
@@ -142,24 +149,27 @@ build_ipa() {
     flutter pub run flutter_launcher_icons >/dev/null 2>&1 || \
     echo "Warning: flutter_launcher_icons step skipped"
 
+  local src
+  if [[ "$BUILD_TYPE" == "aab" ]]; then
+    echo ""
+    echo "Building AAB..."
+    flutter build appbundle --release
+    src="$ROOT_DIR/build/app/outputs/bundle/release/app-release.aab"
+  else
+    echo ""
+    echo "Building APK..."
+    flutter build apk --release
+    src="$ROOT_DIR/build/app/outputs/flutter-apk/app-release.apk"
+  fi
+
+  [[ -f "$src" ]] || { echo "Error: artifact not found at $src" >&2; exit 1; }
+
   echo ""
-  echo "Building IPA..."
-  rm -rf "$IPA_BUILD_DIR"
-  flutter build ipa --release --export-method development
+  echo "Moving artifact to $ARTIFACT_FINAL_PATH..."
+  mkdir -p "$APK_OUTPUT_DIR"
+  cp -f "$src" "$ARTIFACT_FINAL_PATH"
 
-  local built_ipa
-  built_ipa="$(find "$IPA_BUILD_DIR" -maxdepth 1 -name '*.ipa' -print -quit 2>/dev/null || true)"
-  [[ -n "$built_ipa" && -f "$built_ipa" ]] || {
-    echo "Error: no IPA found in $IPA_BUILD_DIR" >&2
-    exit 1
-  }
-
-  echo ""
-  echo "Moving IPA to $IPA_FINAL_PATH..."
-  mkdir -p "$IPA_OUTPUT_DIR"
-  mv -f "$built_ipa" "$IPA_FINAL_PATH"
-
-  [[ -f "$IPA_FINAL_PATH" ]] || { echo "Error: failed to move IPA to $IPA_FINAL_PATH" >&2; exit 1; }
+  [[ -f "$ARTIFACT_FINAL_PATH" ]] || { echo "Error: failed to copy artifact to $ARTIFACT_FINAL_PATH" >&2; exit 1; }
 }
 
 git_create_tag() {
@@ -194,14 +204,14 @@ publish_github_release() {
   local title="$APP_NAME $VERSION"
 
   if gh release view "$tag" --repo "$GITHUB_REPO" >/dev/null 2>&1; then
-    gh release upload "$tag" "$IPA_FINAL_PATH" --repo "$GITHUB_REPO" --clobber
-    echo "GitHub: uploaded IPA to existing release $tag"
+    gh release upload "$tag" "$ARTIFACT_FINAL_PATH" --repo "$GITHUB_REPO" --clobber
+    echo "GitHub: uploaded $(basename "$ARTIFACT_FINAL_PATH") to existing release $tag"
   else
-    gh release create "$tag" "$IPA_FINAL_PATH" \
+    gh release create "$tag" "$ARTIFACT_FINAL_PATH" \
       --repo "$GITHUB_REPO" \
       --title "$title" \
-      --notes "$APP_NAME iOS release $VERSION"
-    echo "GitHub: created release $tag and uploaded IPA"
+      --notes "$APP_NAME Android release $VERSION"
+    echo "GitHub: created release $tag and uploaded $(basename "$ARTIFACT_FINAL_PATH")"
   fi
 }
 
@@ -211,6 +221,7 @@ NO_BUMP="false"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --aab) BUILD_TYPE="aab"; shift ;;
     --version) VERSION_OVERRIDE="${2:-}"; shift 2 ;;
     --bump) BUMP_PART="${2:-}"; shift 2 ;;
     --no-bump) NO_BUMP="true"; shift ;;
@@ -228,8 +239,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+ARTIFACT_FINAL_PATH="$APK_OUTPUT_DIR/aadnanda.$BUILD_TYPE"
+
 if [[ "$DELETE_ONLY" == "true" ]]; then
-  delete_old_ipa
+  delete_old_artifact
   exit 0
 fi
 
@@ -276,15 +289,16 @@ fi
 
 echo ""
 echo "════════════════════════════════════════"
-echo "  $APP_NAME — IPA Builder"
+echo "  $APP_NAME — Android Builder"
 echo "  Site: https://aadnanda.com"
+echo "  Type: $BUILD_TYPE"
 echo "════════════════════════════════════════"
 echo "Version: $VERSION"
 echo "════════════════════════════════════════"
 echo ""
 
-delete_old_ipa
-build_ipa
+delete_old_artifact
+build_artifact
 
 if [[ "$GIT_PUSH" == "true" ]]; then
   git_create_tag
@@ -300,7 +314,7 @@ echo ""
 echo "════════════════════════════════════════"
 echo "  Done!"
 echo "════════════════════════════════════════"
-echo "Version:    $VERSION"
-echo "Built IPA:  $IPA_FINAL_PATH"
+echo "Version:        $VERSION"
+echo "Built artifact: $ARTIFACT_FINAL_PATH"
 echo "════════════════════════════════════════"
 echo ""
