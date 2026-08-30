@@ -11,18 +11,18 @@
       "iconURL": "https://raw.githubusercontent.com/Aad6552/aadnanda-app/main/assets/icon/app_icon.png",
       "tintColor": "1976D2",
       "category": "utilities",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "versionDate": "2026-08-29",
       "downloadURL": "https://github.com/Aad6552/aadnanda-app/releases/download/ios-latest/aadnanda.ipa",
-      "size": 6329573,
+      "size": 6329559,
       "versions": [
         {
-          "version": "1.0.3",
-          "buildVersion": "3",
+          "version": "1.0.4",
+          "buildVersion": "4",
           "date": "2026-08-29",
-          "localizedDescription": "Build 1.0.3+3",
+          "localizedDescription": "Build 1.0.4+4",
           "downloadURL": "https://github.com/Aad6552/aadnanda-app/releases/download/ios-latest/aadnanda.ipa",
-          "size": 6329573,
+          "size": 6329559,
           "minOSVersion": "13.0"
         }
       ]
